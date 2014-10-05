@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="gb2312"?>
+<project ver="3" name="公网IP" libEmbed="true" icon="C:\Program Files\Everything\vcache.ico" ui="win" output="快手工程15.exe" CompanyName="单位名称" FileDescription="公网IP" LegalCopyright="Copyright (C) 作者 2014" ProductName="公网IP" InternalName="公网IP" FileVersion="0.0.0.2" ProductVersion="0.0.0.2" publishDir="/Publish/">
+	<file name="main.aau" path="main.aau"/>
+	<folder name="资源文件" path="res" embed="true">
+		<file name="vcache.ico" path="res\vcache.ico" comment="res\vcache.ico"/>
+	</folder>
+</project>

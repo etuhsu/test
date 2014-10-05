@@ -1,0 +1,443 @@
+import win.ui;
+import win.ui.menu;
+import fsys;
+import fsys.journal;
+import sys.volume;
+import sqlite;
+import config;
+import process;
+import mouse;
+/*DSG{{*/
+mainForm = ..win.form( bottom=496;parent=...;text="AAutoEverything - Hades";right=602 )
+mainForm.add( 
+lv_SearchResult={ bgcolor=16777215;bottom=472;right=599;left=5;cls="listview";top=30;z=2;gridLines=1;edge=1;fullRow=1 };
+edt_Keyword={ bottom=28;right=599;left=5;top=5;z=1;edge=1;cls="edit" };
+st_info={ bottom=497;right=503;left=8;text="全盘扫描完成!可以搜索文件了.....";top=474;transparent=1;z=3;cls="static" }
+)
+/*}}*/
+
+//定义弹出菜单1:
+var lv_popmenu = win.ui.popmenu(mainForm);
+lv_popmenu.addTable( 
+	{
+    	{ "运行文件";  
+    		function(id){
+    			var i = mainForm.lv_SearchResult.selIndex;
+    			if (i)
+    				process.execute(string.concat(
+        									mainForm.lv_SearchResult.getItemText(i, 2), 
+        									mainForm.lv_SearchResult.getItemText(i, 1)
+        								)
+        							);
+    		}; 
+    	}; 
+    	{ /*分隔线*/ };
+    	{ "打开文件位置"; 
+    		function(id){
+    			var i = mainForm.lv_SearchResult.selIndex;
+    			if (i)
+        			process.explore_select(string.concat(
+        											mainForm.lv_SearchResult.getItemText(i, 2), 
+        											mainForm.lv_SearchResult.getItemText(i, 1)
+        										)
+        									);
+    		}; 
+    	};
+	} 
+);
+
+
+//定义右键菜单
+//两种方法定义菜单
+/**
+var lv_popmenu = win.ui.popmenu(mainForm);//创建弹出菜单
+lv_popmenu.add('运行文件',
+	function(id){ 
+		var i = mainForm.lv_SearchResult.selIndex;
+    	if (i)
+    		process.execute(string.concat(
+        							mainForm.lv_SearchResult.getItemText(i, 2), 
+        							mainForm.lv_SearchResult.getItemText(i, 1)
+        						)
+        					);
+	}
+);
+lv_popmenu.add('打开文件位置',
+	function(id){ 
+		var i = mainForm.lv_SearchResult.selIndex;
+    	if (i)
+        	process.explore_select(string.concat(
+        									mainForm.lv_SearchResult.getItemText(i, 2), 
+        									mainForm.lv_SearchResult.getItemText(i, 1)
+        								)
+        							);
+	}
+);
+**/
+
+//ListView相应回调,不大好使,不使用了
+/**
+mainForm.lv_SearchResult.wndproc = function(hwnd,message,wParam,lParam){
+	select( message ) { 
+        case 0x205/*_WM_RBUTTONUP*/ {
+            lv_popmenu.popup()                      
+        }
+    }
+
+	//无返回值则继续调用默认回调函数
+}
+**/
+
+//ListView响应事件,比相应回调好用.
+mainForm.lv_SearchResult.onnotify = function(id,code,ptr){
+	select(code) {
+		case 0xFFFFFFFB/*_NM_RCLICK*/ {
+    		var x,y = mouse.getPos();
+    		lv_popmenu.popup(x,y,true);//弹出菜单
+    	}
+    	case 0xFFFFFFFD/*_NM_DBLCLK*/ {
+    			var i = mainForm.lv_SearchResult.selIndex;
+    			if (i)
+    				process.execute(string.concat(
+        									mainForm.lv_SearchResult.getItemText(i, 2), 
+        									mainForm.lv_SearchResult.getItemText(i, 1)
+        								)
+        						);
+    	}
+    }	
+}
+
+//搜索框的回调事件
+mainForm.edt_Keyword.wndproc = function(hwnd,message,wParam,lParam){
+	select ( message ) {
+		case 0x101/*_WM_KEYUP*/{
+			if (wParam == 13) // 回车键
+				searchKeyword(mainForm.edt_Keyword.text);
+		}
+	}
+	//无返回值则继续调用默认回调函数
+}
+
+//根据条件 搜索文件
+searchKeyword = function(keyword){
+	//清空结果列表
+	mainForm.lv_SearchResult.clear();
+	readData("select name, path from fileinfo where name like '%" + mainForm.edt_Keyword.text + "%' order by sort;");
+	mainForm.edt_Keyword.setFocus();
+	thread.create(getFileinfo, mainForm.lv_SearchResult.hwnd);
+}
+
+//从数据库读取数据
+readData = function(sql_str){
+	//打开数据库
+	var sqlConn = sqlite("/hades_fileinfo.db");
+	//开始搜索数据库
+	/*
+	for name, path in sqlConn.each(sql_str) {
+		mainForm.lv_SearchResult.addItem( {string.fromto(name); string.fromto(path)} );
+	}
+	*/
+	sqlConn.enum( 
+		sql_str,
+		function(tName,tValue){
+			for(col=1;#tName;2){ 
+				mainForm.lv_SearchResult.addItem( {string.fromto(tValue[col]); string.fromto(tValue[col + 1])});
+				continue ;
+			}
+		}
+	)
+	sqlConn.close();	
+}
+
+//转换属性名称
+//线程调用会出错.不知为何.
+/**
+toAttrib = function(att_id){
+	var att = tonumber(att_id);
+	select(att) {
+		case 0x10/*_FILE_ATTRIBUTE_DIRECTORY*/ {
+			return "D"
+		}
+		case 0x1/*_FILE_ATTRIBUTE_READONLY*/ {
+			return "R"
+		}
+		case 0x20/*_FILE_ATTRIBUTE_ARCHIVE*/ {
+			return "A"
+		}
+		case 0x100/*_FILE_ATTRIBUTE_TEMPORARY*/ {
+			return "T"
+		}
+		case 0x800/*_FILE_ATTRIBUTE_COMPRESSED*/ {
+			return "C"
+		}
+		case 0x80/*_FILE_ATTRIBUTE_NORMAL*/ {
+			return "N"
+		}
+		case 0x2/*_FILE_ATTRIBUTE_HIDDEN*/ {
+			return "H"
+		}
+		case 0x4/*_FILE_ATTRIBUTE_SYSTEM*/ {
+			return "S"
+		}
+		else {
+			return "ERROR"
+		}
+	}
+}
+**/
+
+//获取文件信息的线程函数
+getFileinfo = function(lv_hwnd){
+	import win.ui;
+	import win.ui.ctrl.listview;
+	import fsys.file;
+	import fsys;
+	import fsys.time;
+	
+	var lv = win.ui.ctrl.listview();
+	lv.hwnd = lv_hwnd;
+	
+	//添加到ListView
+	for(i=1;lv.count;1){
+		var file_path = string.concat(lv.getItemText(i, 2), lv.getItemText(i, 1));
+		var filetmp = fsys.file(file_path);
+		if (filetmp) {
+			var si, un, unn = fsys.size.format(filetmp.size(), , , );
+			
+			lv.setItemText(fsys.formatSize(si), i, 3);
+			//lv.setItemText(time.ole(filetmp.getFileTime().creation, "%Y/%m/%d %H:%M:%S"), i, 4);
+			lv.setItemText(tostring(filetmp.getFileTime().creation), i, 4);
+			
+			var att = tonumber(tostring(fsys.attrib(file_path)));
+			var attstr = "";
+			select(att) {
+				case 0x10/*_FILE_ATTRIBUTE_DIRECTORY*/ {
+					attstr = "D";
+				}
+				case 0x1/*_FILE_ATTRIBUTE_READONLY*/ {
+					attstr = "R";
+				}
+				case 0x20/*_FILE_ATTRIBUTE_ARCHIVE*/ {
+					attstr = "A";
+				}
+				case 0x100/*_FILE_ATTRIBUTE_TEMPORARY*/ {
+					attstr = "T";
+				}
+				case 0x800/*_FILE_ATTRIBUTE_COMPRESSED*/ {
+					attstr = "C";
+				}
+				case 0x80/*_FILE_ATTRIBUTE_NORMAL*/ {
+					attstr = "N";
+				}
+				case 0x2/*_FILE_ATTRIBUTE_HIDDEN*/ {
+					attstr = "H";
+				}
+				case 0x4/*_FILE_ATTRIBUTE_SYSTEM*/ {
+					attstr = "S";
+				}
+				else {
+					attstr = "ERROR";
+				}
+			}
+			
+			//lv.setItemText(toAttrib(tonumber(tostring(fsys.attrib(file_path)))), i, 5);
+			lv.setItemText(attstr, i, 5);
+			filetmp.close();
+		} else {			
+			//文件夹的操作 简单一写 不写很复杂了
+			
+			lv.setItemText("D", i, 5);
+		}
+		
+		//获取文件类型
+		//filetype = string.right(filename,string.len(filename)-string.lastIndexAny(filename,"."));		
+		
+	}
+}
+
+//搜索框的相应命令方法
+mainForm.edt_Keyword.oncommand = function(id,event){
+	//响应按键消息
+	//由于会出现卡的现象,就改为回车搜索
+	
+	if (event == 0x300/*_EN_CHANGE*/){
+		if (string.len(mainForm.edt_Keyword.text) == 0){
+			//加载前1000条数据出来显示
+			//清空结果列表
+			mainForm.lv_SearchResult.clear();
+			readData("select name, path from fileinfo where rowid <= 100;");
+			mainForm.edt_Keyword.setFocus();
+			thread.create(getFileinfo, mainForm.lv_SearchResult.hwnd);
+			/**
+		} else {
+			searchKeyword(mainForm.edt_Keyword.text);
+		**/
+		}
+	}
+	
+}
+
+
+//初始化ListView的表头
+mainForm.lv_SearchResult.insertColumn("名称",100) ;
+mainForm.lv_SearchResult.insertColumn("路径",300) ;
+mainForm.lv_SearchResult.insertColumn("大小",80) ;
+mainForm.lv_SearchResult.insertColumn("更新日期",120) ;
+mainForm.lv_SearchResult.insertColumn("属性",50) ;
+
+//开启线程,进行全盘文件扫描.
+startScan = function(){
+	import thread.manage;
+	
+	var manager = thread.manage();
+
+	mainForm.lv_SearchResult.clear();
+	//mainForm.msgbox("startScan");
+	var drives = sys.volume.getLogicalDrives();
+	for(idx,drive in drives) {
+		manager.createLite(scanDriver, drive, mainForm.st_info.hwnd, mainForm.lv_SearchResult.hwnd);	
+		manager.waitClose() ;
+	}	
+	mainForm.st_info.text = "全盘扫描完成!可以搜索文件了.....";
+}
+
+//扫描全盘的文件.本方法为线程.
+scanDriver = function(drive,st_hwnd, lv_hwnd){
+	import win.ui;
+    import win.ui.ctrl.static;
+    import win.ui.ctrl.listview;
+    import fsys;
+    import fsys.journal;
+    import io;
+    
+    import sqlite;
+    
+    var i = 0;
+    var count = 0;
+	
+	var st = win.ui.ctrl.static();
+	st.hwnd = st_hwnd;
+	
+	var lv = win.ui.ctrl.listview();
+	lv.hwnd = lv_hwnd;
+	
+	var journal,err = fsys.journal(drive); //创建USN日志
+ 	
+	st.text = "请稍候数分钟，正在扫描 (" + drive + ") ......";
+	var usnData = journal.getUsnData();
+	journal.delete();
+	
+	//初始化Sqlite数据库
+	//打开数据库连接
+	var sqlConn = sqlite("/hades_fileinfo.db");
+	
+	var row = sqlConn.stepQuery("SELECT COUNT(1) FROM sqlite_master where type='table' and name='fileinfo';")
+	if( not tonumber( row["COUNT(1)"] )  ){	
+    	//创建表
+    	sqlConn.exec( "create table fileinfo(name TEXT , path TEXT, sort TEXT);");    	
+	} else {
+		sqlConn.exec("delete from fileinfo;");		
+	}
+	
+	//开启事物
+	sqlConn.beginTrans();
+	for(fileReferenceNumber,fileInfo in usnData){
+		var filepath = journal.getFullPath(usnData,fileReferenceNumber);
+		path = io.splitpath(filepath);
+		
+		if(i < 300){ 
+			/*
+			lv.addItem( {string.sub( filepath, string.lastIndexAny(filepath, "\\") + 1, -1, true );
+						filepath});
+			*/
+			lv.addItem( {path.file; path.dir} );
+			i++;			
+		}		
+    	//插入数据
+    	/*
+    	var sql_str = "insert into fileinfo values ('" + 
+    					string.sub( filepath, string.lastIndexAny(filepath, "\\") + 1, -1, true ) +
+    					"', '" + 
+    					filepath + "', " + count + ");";
+    	*/
+    	var sql_str = "insert into fileinfo values ('" + 
+    					path.file +
+    					"', '" + 
+    					path.dir + "', " + count + ");";    					
+    	sqlConn.exec( sql_str );    	
+    	count ++;
+	} 
+	//关闭事物
+	sqlConn.commitTrans();
+	//关闭数据库
+	sqlConn.close();
+	st.text = "扫描 (" + drive + ") 完成."
+}
+
+
+
+mainForm.wndproc = function(hwnd,message,wParam,lParam){
+	select( message ) { 
+		case 0x1/*_WM_CREATE*/{
+			
+		}
+		case 0x5/*_WM_SIZE*/{
+			//设置最小的大小
+			if (mainForm.height < 400){
+				mainForm.height = 400;
+			}
+			if (mainForm.width < 700){
+				mainForm.width = 700;
+			}
+			//保存窗口的大小 不知道为什么保存不成功
+			/*
+			config.hades.top = mainForm.top;
+			config.hades.left = mainForm.left;
+			config.hades.save();
+			*/
+		}
+		case 0x3/*_WM_MOVE*/{
+			//保存窗口的位置, 也是不成功.
+			/*
+			config.hades.top = mainForm.top;
+			config.hades.left = mainForm.left;
+			config.hades.save();
+			*/
+		}
+		case 0xF/*_WM_PAINT*/{
+			mainForm.edt_Keyword.width = mainForm.width - 25;
+			mainForm.edt_Keyword.top = 5;
+			mainForm.edt_Keyword.height = 23;
+			mainForm.st_info.height = 23;
+			mainForm.lv_SearchResult.width = mainForm.edt_Keyword.width;
+			mainForm.lv_SearchResult.height = mainForm.height - 90;
+			mainForm.lv_SearchResult.top = mainForm.edt_Keyword.top + mainForm.edt_Keyword.height + 4;
+			mainForm.st_info.top = mainForm.lv_SearchResult.top + mainForm.lv_SearchResult.height + 4;
+			mainForm.st_info.width = mainForm.edt_Keyword.width;
+		}
+	}
+	//无返回值则继续调用默认回调函数
+}
+
+
+
+
+//保存配置,主要是窗口位置和大小
+//读取可以成功,但是,保存失败了.
+/*
+if (config.hades.top) {
+	mainForm.top = config.hades.top;
+	mainForm.left = config.hades.left;
+	mainForm.width = config.hades.width;
+	mainForm.height = config.hades.height;
+} 
+*/
+//自适应列宽度 
+mainForm.lv_SearchResult.adjust = function(cx,cy){
+    mainForm.lv_SearchResult.fillParent(/*列序号*/);
+} 
+mainForm.show() ;
+//开始执行方法进行全盘扫描
+startScan();
+mainForm.edt_Keyword.setFocus();
+win.loopMessage(); 

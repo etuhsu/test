@@ -1,0 +1,12 @@
+import console;
+import crypt.bin;
+import crypt.hmac;
+ 
+key = '\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b';
+data =  "Hi There"; 
+  
+var hmacData = crypt.hmac.sha1(key,data).getValue(); 
+hmacData = crypt.bin.encodeBase64( hmacData );
+
+console.log( hmacData,#hmacData )
+console.log( '\r\n按 CTRL + C 关闭此窗口' )

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="gb2312"?>
+<project ver="0.60" name="AAutoEverything" libEmbed="true" icon="C:\Program Files\Everything\vcache.ico" CompanyName="Hades" FileDescription="请用管理员权限运行" LegalCopyright="Copyright (C) Hades 2011" ProductName="AAutoEverything - Hades" InternalName="AAutoEverything - Hades" FileVersion="0.0.1.001" ProductVersion="0.0.1.001" publishDir="/Publish/" ui="win" output="AAutoEverything.exe">
+	<file name="main.aau" path="main.aau"/>
+	<folder name="资源文件" path="res" embed="true"/>
+</project>

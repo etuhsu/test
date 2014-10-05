@@ -1,0 +1,11 @@
+//HTML转文本
+
+import inet.http;
+var html = inet.http().get("http://bbs.aau.cn")
+       
+import string.html; 
+txt = string.html.toText(html);
+
+io.open()
+io.print( txt )
+io.print( '\r\n按 CTRL + C 关闭此窗口' )

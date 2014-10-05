@@ -1,0 +1,87 @@
+import win.ui;
+/*DSG{{*/
+mainForm = ..win.form(text="公网IP";right=599;bottom=399)
+mainForm.add(
+edit={cls="edit";left=74;top=97;right=388;bottom=242;db=1;dl=1;dr=1;dt=1;edge=1;multiline=1;z=1}
+)
+/*}}*/
+
+import win.ui.menu;
+import win.util.tray;
+tray = win.util.tray(mainForm,"\res\vcache.ico") //创建托盘图标 
+tray.message = 0x400+9981/*_WM_TRAYMESSAGE*/
+
+get_ipcity = function(){
+     import inet.http
+     var http = inet.http()
+     http.flags = 0x80000000/*_INTERNET_FLAG_RELOAD*强制文件从服务器下载不是缓存*/ |  0x4000000/*_INTERNET_FLAG_DONT_CACHE不缓存数据*/
+     var str = http.down("http://iframe.ip138.com/ic.asp")
+     var ip,city = string.match(str,"\[(.*?)\]" ++ ".来自：(.+?) .+?")
+     http.close()
+     return ip,city;     
+ }
+ 
+ function sendjmail(title,body){
+	import config; //导入用户库
+	if( !config.邮件服务器设置.from ){
+    	config.邮件服务器设置.from = "xxx@163.com";
+    	config.邮件服务器设置.server = "smtp.163.com";
+    	config.邮件服务器设置.name = "xxx@163.com";
+    	config.邮件服务器设置.pw = "xxxxxxxxx";
+    	config.邮件服务器设置.to = "xxx@163.com";
+    	config.邮件服务器设置.log = "";
+    	config.邮件服务器设置.ip = "";
+    	config.邮件服务器设置.time = 60000;//轮询公网IP时间
+	}	
+	import com.smtp;
+	var smtp = com.smtp(); 
+	smtp.from = config.邮件服务器设置.from //发件人 
+	smtp.server = config.邮件服务器设置.server //邮件服务器 
+	smtp.username = config.邮件服务器设置.name //用户名 
+	smtp.password = config.邮件服务器设置.pw //密码 
+	smtp.subject = title; //标题
+	smtp.to = config.邮件服务器设置.to //收件人 
+	
+	smtp.html = ip; //内容
+
+	try{ 
+		smtp.send(); 
+		config.邮件服务器设置.log = "已发送";
+		config.邮件服务器设置.ip = ip;
+	} 
+	catch(e){ 
+		config.邮件服务器设置.log = "错误" ++ e; 
+		return ;  
+	} 
+	/*
+	import console;
+	console.log(config.邮件服务器设置.log); //调试时查看发送状态
+	*/
+	smtp = null; 
+	collectgarbage("collect"); 
+}
+
+//服务器消息接收函数
+mainForm.wndproc = function(hwnd,message,wParam,lParam){
+	select(message) {
+		case msgTaskbarRestart/*任务栏重建*/{
+			win.util.tray.Shell_NotifyIcon(0x2/*_NIM_DELETE*/,tray.m_tnd)
+			win.util.tray.Shell_NotifyIcon(0x0/*_NIM_ADD*/,tray.m_tnd)
+		}
+		else { 	};
+	}
+	//无返回值则继续调用默认回调函数
+}//endproc
+		
+import config; //导入用户库
+while(true){
+	ip,city = get_ipcity()
+	tray.tip = "IP: " ++ ip ++ '\n' ++ "城市:" ++ city;
+	if(config.邮件服务器设置.ip != ip){
+		sendjmail("标题:公网IP",ip);
+	}
+	sleep(config.邮件服务器设置.time);
+}
+
+mainForm.show(false) 
+win.loopMessage(); 

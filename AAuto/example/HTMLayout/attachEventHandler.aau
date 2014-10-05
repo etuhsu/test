@@ -1,0 +1,26 @@
+//节点绑定事件
+import win.ui;
+/*DSG{{*/
+winform = ..win.form(text="AAuto Form";right=599;bottom=399;parent=...)
+winform.add(
+layoutWindow={cls="edit";left=10;top=12;right=580;bottom=382;db=1;dl=1;dr=1;dt=1;multiline=1;notify=1;z=1}
+)
+/*}}*/
+
+import web.layout;
+wbLayout = web.layout(winform.layoutWindow);
+ 
+wbLayout.html =/***
+<div id="my-button" >请点击这里</div>
+***/
+ 
+var layoutEle = wbLayout.getEle("my-button")
+layoutEle.onMouseClick = function( ltTarget,ltEle,x,y,mouseParams ) {
+	winform.text = "点击了节点:" + ltEle.outerHTML 
+}
+
+//调用此函数启用事件函数
+layoutEle.attachEventHandler();
+
+winform.show() 
+win.loopMessage(); 

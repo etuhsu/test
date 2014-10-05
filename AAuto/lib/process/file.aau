@@ -1,0 +1,84 @@
+//file 文件操作
+import fsys;
+import process;
+
+namespace process.file;
+
+each = function(){
+	var prcs;
+	var next,freeItor = ..process.each();
+	return function(){
+		if(prcs) prcs.free();
+		
+		while(  var  path; entry = next(entry);  entry ) {
+			prcs = ..process( entry.th32ProcessID );
+			if( prcs ) {
+				path = prcs.getPath();
+				if(!path) { prcs.free();continue;}
+				if( ..io.exist(path) ) path =  ..fsys.longpath(path)
+				if( path && path != "?" ) return path,prcs;
+			}
+		} 
+	},freeItor
+}
+
+	
+find = function(path){
+	path = ..fsys.longpath(path);
+	var cmp = ..fsys.path.cmp;
+	for( fullpath,prcs in ..process.file.each() ){ 	 
+		if( cmp( fullpath,path ) == 0 ){
+			return prcs;
+		}
+	}
+}
+
+test = function(path){
+	var prcs = find(path);
+	if( prcs ) { prcs.free(); return true;}
+}
+
+wait = function(path){
+	while( !test(path) ){
+		sleep(1000)
+	}
+	return true;
+} 
+
+terminate = function(path){
+	path = ..fsys.longpath(path);
+	var cmp = ..fsys.path.cmp;
+	
+	var p;
+	do {
+		p = null;
+		for( fullpath,prcs in ..process.file.each() ){ 
+			if( fullpath == "?" ) continue;
+			
+			if( cmp( fullpath,path ) == 0 ){
+				prcs.terminate();
+				p = true; 
+			}
+		}
+		sleep(50)
+	}while(p);
+		
+}
+
+delete = function(path){
+	while(..io.exist(path)){ sleep(50); ..fsys.delete(path) }
+}
+
+/**intellisense(process.file)
+each( ) = @for( fullpath,prcs in ??.each() ){ 	
+	..io.print( a,b) 
+	break ;
+}
+each() = !process.
+find() = !process.
+find(.(EXE路径) = 使用物理路径查找并返回进程对象\n仅使用文件名查找请使用process.find函数
+test(.(EXE路径) = 检测指定路径的进程是否存在\n该函数不会返回进程对象
+wait(.(EXE路径) = 等待指定的进程启动
+terminate(.(EXE路径) = 杀除进程
+delete(.(EXE路径) = 循环删除文件\n直到删除成功
+end intellisense**/
